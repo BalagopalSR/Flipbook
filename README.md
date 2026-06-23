@@ -1,23 +1,31 @@
 # Flipbook Maker (Internal)
 
-Internal flipbook tool with login, SQLite database, and dashboard.
+Internal flipbook tool with login, PostgreSQL database, and dashboard.
 
-## Setup
+## Setup (local)
+
+1. Create a free [Neon](https://neon.tech) Postgres database (or use any Postgres host).
+2. Copy `.env.example` to `.env` and set `DATABASE_URL`, `JWT_SECRET`, `AUTH_USERNAME`, and `AUTH_PASSWORD`.
+3. Run:
 
 ```bash
 npm install
 npm run db:push
+npm run db:seed
 npm run dev
 ```
 
-Copy `.env.example` to `.env` and adjust credentials:
+## Deploy to Vercel
 
-```
-AUTH_USERNAME=admin
-AUTH_PASSWORD=admin123
-JWT_SECRET=your-secret-key
-DATABASE_URL="file:./dev.db"
-```
+SQLite (`file:./dev.db`) **does not work** on Vercel — serverless functions have no persistent local disk.
+
+1. Create a Neon Postgres database and copy its connection string.
+2. In the Vercel project → **Settings → Environment Variables**, add:
+   - `DATABASE_URL` — Neon connection string (`?sslmode=require`)
+   - `JWT_SECRET` — long random string
+   - `AUTH_USERNAME` — login username
+   - `AUTH_PASSWORD` — login password
+3. Redeploy. The build runs `prisma db push` and seeds the admin user automatically.
 
 ## Usage
 
@@ -48,6 +56,6 @@ DATABASE_URL="file:./dev.db"
 
 ## Database
 
-SQLite file: `prisma/dev.db`
+PostgreSQL (recommended: [Neon](https://neon.tech) free tier).
 
 View data: `npm run db:studio`
