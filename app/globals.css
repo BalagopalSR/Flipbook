@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-surface: #ffffff;
+  --color-muted: #f8fafc;
+  --color-border: #e2e8f0;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+.flipbook-page-image {
+  image-rendering: auto;
+}
+
+.flipbook-viewer .stf__item,
+.flipbook-viewer .stf__block {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.flipbook-viewer img {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
