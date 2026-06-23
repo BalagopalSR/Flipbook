@@ -1,9 +1,11 @@
+import { timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 import type { SessionUser } from "@/lib/auth-session";
 
 export type { SessionUser } from "@/lib/auth-session";
 export { COOKIE_NAME, createSessionToken, getSessionUser } from "@/lib/auth-session";
+
+const INTERNAL_USER_ID = "internal-user";
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -13,29 +15,22 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-export async function ensureDefaultUser(): Promise<void> {
-  const username = process.env.AUTH_USERNAME || "admin";
-  const password = process.env.AUTH_PASSWORD || "admin123";
-
-  const existing = await prisma.user.findUnique({ where: { username } });
-  if (existing) return;
-
-  await prisma.user.create({
-    data: {
-      username,
-      password: await hashPassword(password),
-    },
-  });
+function credentialsMatch(input: string, expected: string): boolean {
+  const a = Buffer.from(input);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 export async function authenticateUser(
   username: string,
   password: string
 ): Promise<SessionUser | null> {
-  await ensureDefaultUser();
-  const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return null;
-  const valid = await verifyPassword(password, user.password);
-  if (!valid) return null;
-  return { id: user.id, username: user.username };
+  const expectedUsername = process.env.AUTH_USERNAME || "admin";
+  const expectedPassword = process.env.AUTH_PASSWORD || "admin123";
+
+  if (!credentialsMatch(username, expectedUsername)) return null;
+  if (!credentialsMatch(password, expectedPassword)) return null;
+
+  return { id: INTERNAL_USER_ID, username: expectedUsername };
 }

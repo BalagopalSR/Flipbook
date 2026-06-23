@@ -1,38 +1,43 @@
 # Flipbook Maker (Internal)
 
-Internal flipbook tool with login, PostgreSQL database, and dashboard.
+Internal flipbook tool with login, file-based storage, and dashboard.
 
 ## Setup (local)
 
-1. Create a free [Neon](https://neon.tech) Postgres database (or use any Postgres host).
-2. Copy `.env.example` to `.env` and set `DATABASE_URL`, `JWT_SECRET`, `AUTH_USERNAME`, and `AUTH_PASSWORD`.
-3. Run:
-
 ```bash
 npm install
-npm run db:push
-npm run db:seed
+cp .env.example .env
 npm run dev
+```
+
+Flipbooks are saved as JSON files in `data/flipbooks/` (no database).
+
+Login uses environment variables only:
+
+```
+AUTH_USERNAME=admin
+AUTH_PASSWORD=admin123
+JWT_SECRET=your-secret-key
 ```
 
 ## Deploy to Vercel
 
-SQLite (`file:./dev.db`) **does not work** on Vercel — serverless functions have no persistent local disk.
+No database required.
 
-1. Create a Neon Postgres database and copy its connection string.
-2. In the Vercel project → **Settings → Environment Variables**, add:
-   - `DATABASE_URL` — Neon connection string (`?sslmode=require`)
+1. Push the project to GitHub and import it in Vercel.
+2. Add **Vercel Blob** storage: Vercel Dashboard → **Storage** → **Blob** → Connect to your project.  
+   This sets `BLOB_READ_WRITE_TOKEN` automatically.
+3. Add environment variables:
    - `JWT_SECRET` — long random string
    - `AUTH_USERNAME` — login username
    - `AUTH_PASSWORD` — login password
-3. Redeploy. The build runs `prisma db push` and seeds the admin user automatically.
+4. Deploy. Flipbooks are stored as private JSON files in Vercel Blob.
 
 ## Usage
 
-1. Open http://localhost:3000
-2. Sign in with your credentials
-3. You are redirected to the **Dashboard**
-4. Create flipbooks from **Create** — they are saved to the database
+1. Open the app and sign in
+2. Create flipbooks from **Create** — they are saved as files
+3. Revisit them anytime from the **Dashboard**
 
 ## Routes
 
@@ -54,8 +59,11 @@ SQLite (`file:./dev.db`) **does not work** on Vercel — serverless functions ha
 - `GET/PUT/DELETE /api/flipbooks/[id]` — CRUD
 - `POST /api/flipbooks/[id]/duplicate` — Duplicate
 
-## Database
+## Storage
 
-PostgreSQL (recommended: [Neon](https://neon.tech) free tier).
+| Environment | Where flipbooks live |
+|-------------|----------------------|
+| Local dev | `data/flipbooks/{id}.json` |
+| Vercel | Vercel Blob (`flipbooks/{id}.json`) |
 
-View data: `npm run db:studio`
+Recent view history stays in the browser (`localStorage`), not on the server.
