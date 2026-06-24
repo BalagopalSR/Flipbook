@@ -1,57 +1,20 @@
-import type { Flipbook, FlipbookPage, FlipbookSettings } from "@/types/flipbook";
+import type { Flipbook, FlipbookPage } from "@/types/flipbook";
 import { DEFAULT_ANALYTICS, DEFAULT_SETTINGS } from "@/types/flipbook";
 import { mergeFlipbookSettings, sanitizeSettingsForClient } from "@/lib/flipbook-settings";
 import { COVER_LONG_EDGE, resizeDataUrl } from "@/lib/converters/imageEncoding";
 
-export interface StoredPage extends Omit<FlipbookPage, "imageUrl" | "thumbnailUrl"> {
+interface StoredPage extends Omit<FlipbookPage, "imageUrl" | "thumbnailUrl"> {
   imageData: string;
   thumbnailData?: string;
 }
 
-export interface StoredFlipbook {
-  id: string;
-  title: string;
-  description: string;
-  sourceType: string;
-  originalFileName?: string;
-  sourceUrl?: string;
-  pageCount: number;
-  coverImage?: string;
-  status: string;
-  settings: FlipbookSettings;
-  analytics: Flipbook["analytics"];
-  hotspots: Flipbook["hotspots"];
-  pages: StoredPage[];
-  originalFileData?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type StoredFlipbookSummary = Pick<
-  StoredFlipbook,
-  | "id"
-  | "title"
-  | "description"
-  | "sourceType"
-  | "pageCount"
-  | "coverImage"
-  | "status"
-  | "createdAt"
-  | "updatedAt"
->;
-
-export function coverImageFromPages(pages: StoredPage[], fallback?: string | null): string | undefined {
-  return pages[0]?.thumbnailData || pages[0]?.imageData || fallback || undefined;
-}
-
-/** @deprecated Use coverImageFromPages */
 export function coverImageFromPagesData(
   pagesData: string,
   fallback?: string | null
 ): string | undefined {
   try {
     const pages = JSON.parse(pagesData) as StoredPage[];
-    return coverImageFromPages(pages, fallback);
+    return pages[0]?.thumbnailData || pages[0]?.imageData || fallback || undefined;
   } catch {
     return fallback || undefined;
   }
@@ -69,7 +32,7 @@ async function urlToDataUrl(url: string): Promise<string> {
   });
 }
 
-export async function prepareFlipbookForStorage(flipbook: Flipbook): Promise<StoredFlipbook> {
+export async function prepareFlipbookForDb(flipbook: Flipbook) {
   const pages: StoredPage[] = await Promise.all(
     flipbook.pages.map(async (page) => {
       const imageData = await urlToDataUrl(page.imageUrl);
@@ -135,11 +98,26 @@ export async function prepareFlipbookForStorage(flipbook: Flipbook): Promise<Sto
   };
 }
 
-/** @deprecated Use prepareFlipbookForStorage */
-export const prepareFlipbookForDb = prepareFlipbookForStorage;
-
-export function flipbookFromStored(stored: StoredFlipbook): Flipbook {
-  const pages: FlipbookPage[] = stored.pages.map((p) => ({
+export function flipbookFromDb(record: {
+  id: string;
+  title: string;
+  description: string;
+  sourceType: string;
+  originalFileName: string | null;
+  sourceUrl: string | null;
+  pageCount: number;
+  coverImage: string | null;
+  status: string;
+  settings: string;
+  analytics: string;
+  hotspots: string;
+  pagesData: string;
+  originalFileData: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): Flipbook {
+  const pagesRaw = JSON.parse(record.pagesData) as StoredPage[];
+  const pages: FlipbookPage[] = pagesRaw.map((p) => ({
     id: p.id,
     pageNumber: p.pageNumber,
     imageUrl: p.imageData,
@@ -152,43 +130,53 @@ export function flipbookFromStored(stored: StoredFlipbook): Flipbook {
   }));
 
   return {
-    id: stored.id,
-    title: stored.title,
-    description: stored.description,
-    sourceType: stored.sourceType as Flipbook["sourceType"],
-    originalFileName: stored.originalFileName,
-    originalFileUrl: stored.originalFileData,
-    sourceUrl: stored.sourceUrl,
-    pageCount: stored.pageCount,
+    id: record.id,
+    title: record.title,
+    description: record.description,
+    sourceType: record.sourceType as Flipbook["sourceType"],
+    originalFileName: record.originalFileName || undefined,
+    originalFileUrl: record.originalFileData || undefined,
+    sourceUrl: record.sourceUrl || undefined,
+    pageCount: record.pageCount,
     pages,
     coverImage:
-      stored.coverImage || pages[0]?.thumbnailUrl || pages[0]?.imageUrl || undefined,
-    createdAt: stored.createdAt,
-    updatedAt: stored.updatedAt,
-    status: stored.status as Flipbook["status"],
-    settings: sanitizeSettingsForClient(mergeFlipbookSettings(stored.settings)),
-    analytics: stored.analytics,
-    hotspots: stored.hotspots || [],
+      record.coverImage ||
+      pages[0]?.thumbnailUrl ||
+      pages[0]?.imageUrl ||
+      undefined,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    status: record.status as Flipbook["status"],
+    settings: sanitizeSettingsForClient(mergeFlipbookSettings(JSON.parse(record.settings))),
+    analytics: JSON.parse(record.analytics),
+    hotspots: JSON.parse(record.hotspots),
   };
 }
 
-export function flipbookSummaryFromStored(summary: StoredFlipbookSummary): Flipbook {
+export function flipbookSummaryFromDb(record: {
+  id: string;
+  title: string;
+  description: string;
+  sourceType: string;
+  pageCount: number;
+  coverImage: string | null;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): Flipbook {
   return {
-    id: summary.id,
-    title: summary.title,
-    description: summary.description,
-    sourceType: summary.sourceType as Flipbook["sourceType"],
-    pageCount: summary.pageCount,
+    id: record.id,
+    title: record.title,
+    description: record.description,
+    sourceType: record.sourceType as Flipbook["sourceType"],
+    pageCount: record.pageCount,
     pages: [],
-    coverImage: summary.coverImage,
-    createdAt: summary.createdAt,
-    updatedAt: summary.updatedAt,
-    status: summary.status as Flipbook["status"],
+    coverImage: record.coverImage || undefined,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    status: record.status as Flipbook["status"],
     settings: { ...DEFAULT_SETTINGS },
     analytics: { ...DEFAULT_ANALYTICS },
     hotspots: [],
   };
 }
-
-/** @deprecated Use flipbookSummaryFromStored */
-export const flipbookSummaryFromDb = flipbookSummaryFromStored;

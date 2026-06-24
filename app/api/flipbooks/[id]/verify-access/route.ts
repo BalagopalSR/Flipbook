@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser, verifyPassword } from "@/lib/auth";
+import { verifyPassword } from "@/lib/password";
+import { getSessionUser } from "@/lib/auth-server";
+import { prisma } from "@/lib/prisma";
 import { mergeFlipbookSettings } from "@/lib/flipbook-settings";
 import { isFlipbookExpired } from "@/lib/flipbook-access";
-import { getStoredFlipbook } from "@/lib/storage/flipbook-store";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,13 +14,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const stored = await getStoredFlipbook(id);
+  const record = await prisma.flipbook.findFirst({
+    where: { id, userId: user.id },
+    select: { settings: true },
+  });
 
-  if (!stored) {
+  if (!record) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const settings = mergeFlipbookSettings(stored.settings);
+  const settings = mergeFlipbookSettings(JSON.parse(record.settings));
 
   if (isFlipbookExpired(settings.expiryDate)) {
     return NextResponse.json({ error: "This flipbook has expired" }, { status: 403 });

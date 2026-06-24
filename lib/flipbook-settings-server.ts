@@ -1,5 +1,5 @@
 import type { FlipbookSettings } from "@/types/flipbook";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
 import { mergeFlipbookSettings } from "@/lib/flipbook-settings";
 
 export async function processSettingsForSave(

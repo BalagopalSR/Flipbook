@@ -1,43 +1,30 @@
 # Flipbook Maker (Internal)
 
-Internal flipbook tool with login, file-based storage, and dashboard.
+Internal flipbook tool with login, SQLite database, and dashboard.
 
-## Setup (local)
+## Setup
 
 ```bash
 npm install
-cp .env.example .env
+npm run db:push
 npm run dev
 ```
 
-Flipbooks are saved as JSON files in `data/flipbooks/` (no database).
-
-Login uses environment variables only:
+Copy `.env.example` to `.env` and adjust credentials:
 
 ```
 AUTH_USERNAME=admin
 AUTH_PASSWORD=admin123
 JWT_SECRET=your-secret-key
+DATABASE_URL="file:./dev.db"
 ```
-
-## Deploy to Vercel
-
-No database required.
-
-1. Push the project to GitHub and import it in Vercel.
-2. Add **Vercel Blob** storage: Vercel Dashboard → **Storage** → **Blob** → Connect to your project.  
-   This sets `BLOB_READ_WRITE_TOKEN` automatically.
-3. Add environment variables:
-   - `JWT_SECRET` — long random string
-   - `AUTH_USERNAME` — login username
-   - `AUTH_PASSWORD` — login password
-4. Deploy. Flipbooks are stored as private JSON files in Vercel Blob.
 
 ## Usage
 
-1. Open the app and sign in
-2. Create flipbooks from **Create** — they are saved as files
-3. Revisit them anytime from the **Dashboard**
+1. Open http://localhost:3000
+2. Sign in with your credentials
+3. You are redirected to the **Dashboard**
+4. Create flipbooks from **Create** — they are saved to the database
 
 ## Routes
 
@@ -59,11 +46,8 @@ No database required.
 - `GET/PUT/DELETE /api/flipbooks/[id]` — CRUD
 - `POST /api/flipbooks/[id]/duplicate` — Duplicate
 
-## Storage
+## Database
 
-| Environment | Where flipbooks live |
-|-------------|----------------------|
-| Local dev | `data/flipbooks/{id}.json` |
-| Vercel | Vercel Blob (`flipbooks/{id}.json`) |
+SQLite file: `prisma/dev.db`
 
-Recent view history stays in the browser (`localStorage`), not on the server.
+View data: `npm run db:studio`

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { flipbookFromStored, type StoredFlipbook } from "@/lib/flipbook-db";
+import { prisma } from "@/lib/prisma";
+import { flipbookFromDb } from "@/lib/flipbook-db";
 import { processSettingsForSave } from "@/lib/flipbook-settings-server";
-import {
-  deleteStoredFlipbook,
-  getStoredFlipbook,
-  saveStoredFlipbook,
-} from "@/lib/storage/flipbook-store";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -17,13 +13,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const stored = await getStoredFlipbook(id);
+  const record = await prisma.flipbook.findFirst({
+    where: { id, userId: user.id },
+  });
 
-  if (!stored) {
+  if (!record) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(flipbookFromStored(stored));
+  return NextResponse.json(flipbookFromDb(record));
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
@@ -42,32 +40,41 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const existing = await getStoredFlipbook(id);
-    const settings = await processSettingsForSave(
-      body.settings || {},
-      existing ? JSON.stringify(existing.settings) : undefined
-    );
+    const existing = await prisma.flipbook.findFirst({
+      where: { id, userId: user.id },
+      select: { settings: true },
+    });
 
-    const stored: StoredFlipbook = {
-      id,
+    const settings = await processSettingsForSave(body.settings || {}, existing?.settings);
+
+    const data = {
       title: body.title,
       description: body.description || "",
       sourceType: body.sourceType,
-      originalFileName: body.originalFileName,
-      sourceUrl: body.sourceUrl,
+      originalFileName: body.originalFileName || null,
+      sourceUrl: body.sourceUrl || null,
       pageCount: body.pageCount,
-      coverImage: body.coverImage,
+      coverImage: body.coverImage || null,
       status: body.status || "draft",
-      settings,
-      analytics: body.analytics,
-      hotspots: body.hotspots || [],
-      pages: body.pages,
-      originalFileData: body.originalFileData,
-      createdAt: body.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      settings: JSON.stringify(settings),
+      analytics: JSON.stringify(body.analytics),
+      hotspots: JSON.stringify(body.hotspots || []),
+      pagesData: JSON.stringify(body.pages),
+      originalFileData: body.originalFileData || null,
+      updatedAt: new Date(),
     };
 
-    await saveStoredFlipbook(stored);
+    await prisma.flipbook.upsert({
+      where: { id },
+      create: {
+        id,
+        userId: user.id,
+        ...data,
+        createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
+      },
+      update: data,
+    });
+
     return NextResponse.json({ ok: true, id });
   } catch (err) {
     console.error("Failed to save flipbook:", err);
@@ -83,11 +90,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const removed = await deleteStoredFlipbook(id);
+  const record = await prisma.flipbook.findFirst({
+    where: { id, userId: user.id },
+  });
 
-  if (!removed) {
+  if (!record) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  await prisma.flipbook.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

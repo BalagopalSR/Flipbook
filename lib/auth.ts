@@ -1,36 +1,35 @@
-import { timingSafeEqual } from "node:crypto";
-import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 import type { SessionUser } from "@/lib/auth-session";
+import { hashPassword, verifyPassword } from "@/lib/password";
 
 export type { SessionUser } from "@/lib/auth-session";
-export { COOKIE_NAME, createSessionToken, getSessionUser } from "@/lib/auth-session";
+export { COOKIE_NAME, createSessionToken } from "@/lib/auth-session";
+export { getSessionUser } from "@/lib/auth-server";
+export { hashPassword, verifyPassword };
 
-const INTERNAL_USER_ID = "internal-user";
+export async function ensureDefaultUser(): Promise<void> {
+  const username = process.env.AUTH_USERNAME || "admin";
+  const password = process.env.AUTH_PASSWORD || "admin123";
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
+  const existing = await prisma.user.findUnique({ where: { username } });
+  if (existing) return;
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
-
-function credentialsMatch(input: string, expected: string): boolean {
-  const a = Buffer.from(input);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  await prisma.user.create({
+    data: {
+      username,
+      password: await hashPassword(password),
+    },
+  });
 }
 
 export async function authenticateUser(
   username: string,
   password: string
 ): Promise<SessionUser | null> {
-  const expectedUsername = process.env.AUTH_USERNAME || "admin";
-  const expectedPassword = process.env.AUTH_PASSWORD || "admin123";
-
-  if (!credentialsMatch(username, expectedUsername)) return null;
-  if (!credentialsMatch(password, expectedPassword)) return null;
-
-  return { id: INTERNAL_USER_ID, username: expectedUsername };
+  await ensureDefaultUser();
+  const user = await prisma.user.findUnique({ where: { username } });
+  if (!user) return null;
+  const valid = await verifyPassword(password, user.password);
+  if (!valid) return null;
+  return { id: user.id, username: user.username };
 }

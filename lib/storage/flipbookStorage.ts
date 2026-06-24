@@ -1,5 +1,5 @@
 import type { Flipbook } from "@/types/flipbook";
-import { prepareFlipbookForStorage } from "@/lib/flipbook-db";
+import { prepareFlipbookForDb } from "@/lib/flipbook-db";
 import { removeFromViewHistory } from "@/lib/storage/viewHistory";
 
 async function apiFetch(url: string, options?: RequestInit) {
@@ -19,7 +19,7 @@ async function apiFetch(url: string, options?: RequestInit) {
 }
 
 export async function saveFlipbook(flipbook: Flipbook): Promise<void> {
-  const prepared = await prepareFlipbookForStorage(flipbook);
+  const prepared = await prepareFlipbookForDb(flipbook);
   const res = await apiFetch(`/api/flipbooks/${flipbook.id}`, {
     method: "PUT",
     body: JSON.stringify(prepared),
