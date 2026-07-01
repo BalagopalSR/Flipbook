@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { flipbookFromDb } from "@/lib/flipbook-db";
@@ -27,7 +28,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 export async function PUT(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Session expired. Please sign out and sign in again." },
+      { status: 401 }
+    );
   }
 
   const { id } = await context.params;
@@ -78,6 +82,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ ok: true, id });
   } catch (err) {
     console.error("Failed to save flipbook:", err);
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2003"
+    ) {
+      return NextResponse.json(
+        { error: "Session expired. Please sign out and sign in again." },
+        { status: 401 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Failed to save flipbook";
     return NextResponse.json({ error: message }, { status: 500 });
   }

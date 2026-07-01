@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { SessionUser } from "@/lib/auth-session";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { seedDefaultUser } from "@/lib/seed-default-user";
 
 export type { SessionUser } from "@/lib/auth-session";
 export { COOKIE_NAME, createSessionToken } from "@/lib/auth-session";
@@ -8,18 +9,7 @@ export { getSessionUser } from "@/lib/auth-server";
 export { hashPassword, verifyPassword };
 
 export async function ensureDefaultUser(): Promise<void> {
-  const username = process.env.AUTH_USERNAME || "admin";
-  const password = process.env.AUTH_PASSWORD || "admin123";
-
-  const existing = await prisma.user.findUnique({ where: { username } });
-  if (existing) return;
-
-  await prisma.user.create({
-    data: {
-      username,
-      password: await hashPassword(password),
-    },
-  });
+  await seedDefaultUser();
 }
 
 export async function authenticateUser(
