@@ -106,8 +106,8 @@ export default function ViewerPage() {
   }, [id]);
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
         <div className="flex items-center gap-3">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm" aria-label="Back to dashboard">
@@ -127,13 +127,13 @@ export default function ViewerPage() {
           </Link>
         )}
       </header>
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {loading ? (
           <LoadingState message="Loading flipbook..." />
         ) : error ? (
           <ErrorState message={error} />
         ) : flipbook ? (
-          <>
+          <div className="h-full min-h-0">
             <ViewerAccessGate flipbook={flipbook}>
               <FlipbookViewer flipbook={flipbook} />
             </ViewerAccessGate>
@@ -146,7 +146,7 @@ export default function ViewerPage() {
                 />
               </div>
             )}
-          </>
+          </div>
         ) : null}
       </div>
     </div>

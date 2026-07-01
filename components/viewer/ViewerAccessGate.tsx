@@ -87,7 +87,7 @@ export function ViewerAccessGate({ flipbook, children }: ViewerAccessGateProps) 
 
   if (!ready) return null;
 
-  if (unlocked) return <>{children}</>;
+  if (unlocked) return <div className="h-full min-h-0">{children}</div>;
 
   if (blockReason === "expired") {
     return (

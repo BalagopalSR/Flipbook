@@ -11,6 +11,7 @@ import { SlideViewer } from "./SlideViewer";
 import { FlipbookToolbar } from "./FlipbookToolbar";
 import { ThumbnailSidebar } from "./ThumbnailSidebar";
 import { ShareModal } from "@/components/share/ShareModal";
+import { useFlipbookViewport } from "./useFlipbookViewport";
 import { trackFlipbookView, trackPageView, trackDownload } from "@/lib/analytics/analyticsTracker";
 import { exportFlipbookToFile } from "@/lib/storage/flipbookExport";
 import { addToViewHistory } from "@/lib/storage/viewHistory";
@@ -36,7 +37,18 @@ export function FlipbookViewer({
   const [thumbnailsOpen, setThumbnailsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const pageFlipRef = useRef<PageFlipRef>(null);
+  const shellSize = useFlipbookViewport(containerRef);
+  const previewSize = useFlipbookViewport(previewRef);
+  const toolbarSize = useFlipbookViewport(toolbarRef);
+
+  const viewportWidth = previewSize.width || shellSize.width;
+  const viewportHeight =
+    previewSize.height > 0
+      ? previewSize.height
+      : Math.max(0, shellSize.height - toolbarSize.height);
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { showToast } = useToast();
 
@@ -200,10 +212,10 @@ export function FlipbookViewer({
   return (
     <div
       ref={containerRef}
-      className={`flex h-full flex-col ${isFullscreen ? "fixed inset-0 z-50 bg-slate-900" : ""}`}
+      className={`flex h-full min-h-0 flex-col ${isFullscreen ? "fixed inset-0 z-50 bg-slate-900" : ""}`}
       style={{ background: isFullscreen ? "#1e293b" : settings?.background }}
     >
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {settings?.showThumbnails && (
           <ThumbnailSidebar
             pages={pages}
@@ -213,7 +225,10 @@ export function FlipbookViewer({
             onClose={() => setThumbnailsOpen(false)}
           />
         )}
-        <div className="flex flex-1 items-center justify-center overflow-hidden p-4">
+        <div
+          ref={previewRef}
+          className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden px-6 py-4"
+        >
           {effect === "flip" && settings && (
             <PageFlipViewer
               ref={pageFlipRef}
@@ -221,6 +236,8 @@ export function FlipbookViewer({
               settings={settings}
               onPageChange={handlePageFlip}
               zoom={zoom}
+              viewportWidth={viewportWidth}
+              viewportHeight={viewportHeight}
             />
           )}
           {effect === "slide" && settings && (
@@ -230,13 +247,16 @@ export function FlipbookViewer({
               currentPage={currentPage}
               onPageChange={setCurrentPage}
               zoom={zoom}
+              viewportWidth={viewportWidth}
+              viewportHeight={viewportHeight}
             />
           )}
         </div>
       </div>
 
       {settings && (
-        <FlipbookToolbar
+        <div ref={toolbarRef} className="shrink-0">
+          <FlipbookToolbar
           flipbook={flipbook}
           currentPage={currentPage}
           totalPages={totalPages}
@@ -259,6 +279,7 @@ export function FlipbookViewer({
           onDownload={handleDownload}
           onPrint={handlePrint}
         />
+        </div>
       )}
 
       {flipbook && (

@@ -9,7 +9,7 @@ interface LivePreviewProps {
 
 export function LivePreview({ flipbook }: LivePreviewProps) {
   return (
-    <div className="h-[calc(100vh-8rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="h-[calc(100vh-8rem)] min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <FlipbookViewer flipbook={flipbook} />
     </div>
   );

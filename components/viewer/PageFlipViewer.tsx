@@ -1,10 +1,14 @@
 "use client";
 
-import React, { forwardRef, useImperativeHandle, useRef, useCallback } from "react";
+import React, { forwardRef, useImperativeHandle, useRef, useCallback, useMemo } from "react";
 import HTMLFlipBook from "react-pageflip";
 import type { FlipbookPage, FlipbookSettings } from "@/types/flipbook";
 import { getShadowClass } from "@/lib/utils/cn";
-import { VIEWER_PAGE_WIDTH, VIEWER_PAGE_HEIGHT } from "@/lib/converters/renderQuality";
+import {
+  computeFittedPageSize,
+  getPageAspectRatio,
+  VIEWER_INSET,
+} from "@/lib/viewer/computePageSize";
 
 export interface PageFlipRef {
   flipNext: () => void;
@@ -18,14 +22,9 @@ interface PageFlipViewerProps {
   settings: FlipbookSettings;
   onPageChange: (page: number) => void;
   zoom: number;
+  viewportWidth: number;
+  viewportHeight: number;
 }
-
-const PAGE_WIDTH = VIEWER_PAGE_WIDTH;
-const PAGE_HEIGHT = VIEWER_PAGE_HEIGHT;
-const PAGE_MIN_WIDTH = Math.round(PAGE_WIDTH * 0.7);
-const PAGE_MAX_WIDTH = Math.round(PAGE_WIDTH * 2);
-const PAGE_MIN_HEIGHT = Math.round(PAGE_HEIGHT * 0.72);
-const PAGE_MAX_HEIGHT = Math.round(PAGE_HEIGHT * 1.61);
 
 const Page = forwardRef<HTMLDivElement, { page: FlipbookPage; settings: FlipbookSettings }>(
   ({ page, settings }, ref) => (
@@ -47,7 +46,7 @@ const Page = forwardRef<HTMLDivElement, { page: FlipbookPage; settings: Flipbook
 Page.displayName = "Page";
 
 export const PageFlipViewer = forwardRef<PageFlipRef, PageFlipViewerProps>(
-  ({ pages, settings, onPageChange, zoom }, ref) => {
+  ({ pages, settings, onPageChange, zoom, viewportWidth, viewportHeight }, ref) => {
     const bookRef = useRef<{
       pageFlip: () => {
         flipNext: (corner?: string) => void;
@@ -81,25 +80,36 @@ export const PageFlipViewer = forwardRef<PageFlipRef, PageFlipViewerProps>(
 
     const speedMap = { slow: 1200, normal: 800, fast: 400 };
     const isSinglePage = settings.pageMode === "single";
+    const firstPage = pages[0];
+
+    const { pageWidth, pageHeight } = useMemo(() => {
+      if (viewportWidth <= 0 || viewportHeight <= 0) {
+        return { pageWidth: 400, pageHeight: 560 };
+      }
+
+      return computeFittedPageSize(viewportWidth, viewportHeight, {
+        pageAspect: getPageAspectRatio(firstPage?.width, firstPage?.height),
+        isDoubleSpread: !isSinglePage,
+        padding: VIEWER_INSET,
+        zoom,
+      });
+    }, [viewportWidth, viewportHeight, firstPage?.width, firstPage?.height, isSinglePage, zoom]);
 
     if (pages.length === 0) return null;
 
     return (
-      <div
-        className="flipbook-container"
-        style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
-      >
+      <div className="flipbook-container flex h-full w-full items-center justify-center">
         {/* @ts-expect-error react-pageflip types are incomplete */}
         <HTMLFlipBook
-          key={`book-${isSinglePage ? "single" : "double"}-${pages.length}`}
+          key={`book-${isSinglePage ? "single" : "double"}-${pages.length}-${pageWidth}x${pageHeight}`}
           ref={bookRef}
-          width={PAGE_WIDTH}
-          height={PAGE_HEIGHT}
+          width={pageWidth}
+          height={pageHeight}
           size="fixed"
-          minWidth={PAGE_MIN_WIDTH}
-          maxWidth={PAGE_MAX_WIDTH}
-          minHeight={PAGE_MIN_HEIGHT}
-          maxHeight={PAGE_MAX_HEIGHT}
+          minWidth={pageWidth}
+          maxWidth={pageWidth}
+          minHeight={pageHeight}
+          maxHeight={pageHeight}
           showCover={true}
           mobileScrollSupport={true}
           useMouseEvents={true}
